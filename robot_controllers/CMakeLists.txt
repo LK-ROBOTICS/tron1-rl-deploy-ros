@@ -47,9 +47,13 @@ include_directories(
   ${CATKIN_DEVEL_PREFIX}/include
   ${EIGEN3_INCLUDE_DIRS}
   ${catkin_INCLUDE_DIRS}
+  /opt/onnxruntime/include
 )
 
-link_directories(${CATKIN_DEVEL_PREFIX}/lib)
+link_directories(
+  ${CATKIN_DEVEL_PREFIX}/lib
+  /opt/onnxruntime/lib
+)
 
 # Add a shared library target
 add_library(${PROJECT_NAME} SHARED
