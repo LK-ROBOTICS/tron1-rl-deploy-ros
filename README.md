@@ -126,6 +126,7 @@ You can create an RL deployment development workspace by following these steps:
   ```
   source install/setup.bash
   roslaunch robot_hw pointfoot_hw_sim.launch
+  roslaunch robot_hw pointfoot_controller_sim.launch
   ```
   ![](doc/simulator.gif)
 

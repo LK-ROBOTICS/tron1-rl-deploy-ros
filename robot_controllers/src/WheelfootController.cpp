@@ -19,11 +19,12 @@ bool WheelfootController::init(hardware_interface::RobotHW *robot_hw, ros::NodeH
 // Perform initialization when the controller starts
 void WheelfootController::starting(const ros::Time &time) {
   for (size_t i = 0; i < hybridJointHandles_.size(); i++) {
-    ROS_INFO_STREAM("starting hybridJointHandle: " << hybridJointHandles_[i].getPosition());
-    defaultJointAngles_[i] = hybridJointHandles_[i].getPosition();
+    defaultJointAngles_[i] = 0.0; // start from a neutral pose like the Python controller
   }
 
-  standPercent_ += 1 / (standDuration_ * loopFrequency_);
+  // Delay stand-up for a short window to let Gazebo settle, then interpolate.
+  standDelayCycles_ = static_cast<int>(3.0 * loopFrequency_);  // ~3 seconds
+  standPercent_ = 0.0;
 
   loopCount_ = 0;
 
@@ -32,15 +33,19 @@ void WheelfootController::starting(const ros::Time &time) {
 
 // Update function called periodically
 void WheelfootController::update(const ros::Time &time, const ros::Duration &period) {
+  // Hip joint indices differ between Isaac Gym and Isaac Lab joint orderings.
+  const int hip_L_idx = rl_type_ == "isaacgym" ? 1 : 2;
+  const int hip_R_idx = rl_type_ == "isaacgym" ? 5 : 3;
+
   switch (mode_) {
     case Mode::STAND:
-    initJointAngles_(1, 0) = -0.9;
-    initJointAngles_(5, 0) = 0.9;
+      initJointAngles_(hip_L_idx, 0) = -0.9;
+      initJointAngles_(hip_R_idx, 0) = 0.9;
       handleStandMode();
       break;
     case Mode::WALK:
-    initJointAngles_(1, 0) = -0.0;
-    initJointAngles_(5, 0) = 0.0;
+      initJointAngles_(hip_L_idx, 0) = 0.0;
+      initJointAngles_(hip_R_idx, 0) = 0.0;
       handleWalkMode();
       break;
   }
@@ -105,6 +110,21 @@ void WheelfootController::handleWalkMode() {
 // Handle standing mode
 void WheelfootController::handleStandMode() {
   int wheel_L_idx = rl_type_ == "isaacgym" ? 3 : 6, wheel_R_idx = 7;
+  if (standDelayCycles_ > 0) {
+    // Hold squat pose during the delay window
+    for (int j = 0; j < hybridJointHandles_.size(); j++) {
+      if (j != wheel_L_idx && j != wheel_R_idx) { // not wheel
+        scalar_t pos_des = initJointAngles_[j];
+        hybridJointHandles_[j].setCommand(pos_des, 0, robotCfg_.controlCfg.stiffness,
+                                          robotCfg_.controlCfg.damping, 0, 2);
+      } else {
+        hybridJointHandles_[j].setCommand(0, 0.0, 0, wheelJointDamping_, 0, 0);
+      }
+    }
+    standDelayCycles_--;
+    return;
+  }
+
   if (standPercent_ < 1) {
     for (int j = 0; j < hybridJointHandles_.size(); j++) {
       if (j != wheel_L_idx && j != wheel_R_idx) { // not wheel

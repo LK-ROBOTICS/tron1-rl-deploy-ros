@@ -111,6 +111,7 @@ private:
   
   double gait_index_{0.0};
   bool isfirstRecObs_{true};
+  int standDelayCycles_{0};
 };
 
 } // namespace robot_controller

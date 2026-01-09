@@ -6,7 +6,7 @@
 
   <param name="use_gazebo" value="true"/>
 
-  <include file="$(find pointfoot_gazebo)/launch/empty_world.launch"/>
+  <include file="$(find pointfoot_gazebo)/launch/mixed_terrain.launch"/>
   <rosparam file="$(find robot_controllers)/config/controllers.yaml" command="load"/>
   <param name="policyFile" value="$(find robot_controllers)/config/pointfoot/$(env ROBOT_TYPE)/policy/$(env RL_TYPE)/policy.onnx"/>
   <param name="encoderFile" value="$(find robot_controllers)/config/pointfoot/$(env ROBOT_TYPE)/policy/$(env RL_TYPE)/encoder.onnx"/>
@@ -14,6 +14,17 @@
   <rosparam file="$(find robot_controllers)/config/pointfoot/$(env ROBOT_TYPE)/params.yaml" command="load"/>
   <rosparam file="$(find robot_hw)/config/robot_hw.yaml" command="load"/>
   <rosparam file="$(find robot_hw)/config/joystick.yaml" command="load"/>
+
+  <!-- Publish joint states through controller_manager so we can monitor hip angles -->
+  <rosparam ns="pointfoot_hw">
+    joint_state_controller:
+      type: joint_state_controller/JointStateController
+      publish_rate: 100
+  </rosparam>
+  <!-- Run spawner in the same namespace as controller_manager -->
+  <node name="joint_state_spawner" pkg="controller_manager" type="spawner" ns="pointfoot_hw"
+        args="joint_state_controller" />
+
   <node name="pointfoot_hw" pkg="robot_hw" type="pointfoot_node" respawn="false" clear_params="true" required="true" output="screen" args="127.0.0.1" />
   <node name="rqt_robot_steering" pkg="rqt_robot_steering" type="rqt_robot_steering" respawn="false" />
   <include if="$(arg plot)" file="$(find robot_visualization)/launch/pointfoot_plot_sim.launch"/>
